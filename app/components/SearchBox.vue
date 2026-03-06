@@ -26,7 +26,7 @@ const emit = defineEmits<{
 
 
 const canSearch = computed(() => {
-  return props.searchTerm.trim().length >= 2 && !props.isSearching
+  return (props.searchTerm.trim().length >= 2 || !!props.selectedCountry) && !props.isSearching
 })
 
 function handleSearchTermInput(event: Event) {
@@ -98,7 +98,7 @@ function handleKeydown(e: KeyboardEvent) {
         autocomplete="off"
         @input="handleSearchTermInput"
       />
-      <div class="field-hint">Minimum 2 characters. Supports phrases and boolean operators.</div>
+      <div class="field-hint">Optional when filtering by country. Supports phrases and boolean operators.</div>
     </div>
 
     <!-- Ranking Method -->

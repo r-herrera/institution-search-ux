@@ -88,12 +88,18 @@ export function useSearch() {
   }
 
   /**
-   * Execute a paginated search against the API
+   * Execute a paginated search against the API.
+   * - If a search term (≥2 chars) is present: uses /api/search/paginated (full-text / trgm)
+   * - If only a country is selected: uses /api/search/browse (location browse, no term needed)
+   * - If neither: shows an error
    */
   async function search() {
     const term = searchTerm.value.trim()
-    if (!term || term.length < 2) {
-      error.value = 'Please enter at least 2 characters to search'
+    const hasTerm = term.length >= 2
+    const hasCountry = !!selectedCountry.value
+
+    if (!hasTerm && !hasCountry) {
+      error.value = 'Enter a search term or select a country'
       return
     }
 
@@ -105,50 +111,83 @@ export function useSearch() {
     rankingExplanation.value = ''
 
     try {
-      const params = new URLSearchParams({
-        q: term,
-        method: rankingMethod.value,
-        page: String(currentPage.value),
-        limit: String(perPage.value),
-      })
+      if (hasTerm) {
+        // Full-text / fuzzy search (requires search term)
+        const params = new URLSearchParams({
+          q: term,
+          method: rankingMethod.value,
+          page: String(currentPage.value),
+          limit: String(perPage.value),
+        })
 
-      if (selectedCountry.value) {
-        params.append('country', selectedCountry.value)
-      }
-      if (selectedCity.value) {
-        params.append('city', selectedCity.value)
-      }
+        if (selectedCountry.value) {
+          params.append('country', selectedCountry.value)
+        }
+        if (selectedCity.value) {
+          params.append('city', selectedCity.value)
+        }
 
-      const response = await $fetch<PaginatedSearchResponse>(
-        `${apiBase}/search/paginated?${params}`
-      )
+        const response = await $fetch<PaginatedSearchResponse>(
+          `${apiBase}/search/paginated?${params}`
+        )
 
-      results.value = response.data
-      totalResults.value = response.meta.total
-      totalPages.value = response.meta.last_page
-      currentPage.value = response.meta.current_page
-      rankingExplanation.value = response.ranking_explanation
-      rankingTechnicalDetail.value = response.ranking_technical_detail || ''
-      hasSearched.value = true
+        results.value = response.data
+        totalResults.value = response.meta.total
+        totalPages.value = response.meta.last_page
+        currentPage.value = response.meta.current_page
+        rankingExplanation.value = response.ranking_explanation
+        rankingTechnicalDetail.value = response.ranking_technical_detail || ''
+        hasSearched.value = true
 
-      // Build a simple metrics object for the metrics bar
-      metrics.value = {
-        duration_ms: response.metrics.duration_ms,
-        rows_returned: response.metrics.rows_returned,
-        query_source: response.metrics.query_source,
-        executed_at: response.metrics.executed_at,
-        query_type: response.metrics.query_type,
-        search_term: response.metrics.search_term,
-      }
+        metrics.value = {
+          duration_ms: response.metrics.duration_ms,
+          rows_returned: response.metrics.rows_returned,
+          query_source: response.metrics.query_source,
+          executed_at: response.metrics.executed_at,
+          query_type: response.metrics.query_type,
+          search_term: response.metrics.search_term,
+        }
+        detailedMetrics.value = response.metrics
 
-      // Store full metrics including explain for the detail panel
-      detailedMetrics.value = response.metrics
+        console.log(`[Search] "${term}" (${rankingMethod.value}) → ${response.meta.total} total, page ${response.meta.current_page}/${response.meta.last_page}, ${response.metrics.duration_ms.toFixed(2)}ms`)
+        if (response.metrics.explain) {
+          console.log('[Search] EXPLAIN:', JSON.stringify(response.metrics.explain, null, 2))
+        }
+      } else {
+        // Location browse (country required, no search term)
+        const params = new URLSearchParams({
+          country: selectedCountry.value,
+          page: String(currentPage.value),
+          limit: String(perPage.value),
+        })
 
-      // Console log full metrics for debugging
-      console.log(`[Search] "${term}" (${rankingMethod.value}) → ${response.meta.total} total, page ${response.meta.current_page}/${response.meta.last_page}, ${response.metrics.duration_ms.toFixed(2)}ms`)
-      console.log('[Search] Full Metrics:', JSON.stringify(response.metrics, null, 2))
-      if (response.metrics.explain) {
-        console.log('[Search] EXPLAIN:', JSON.stringify(response.metrics.explain, null, 2))
+        if (selectedCity.value) {
+          params.append('city', selectedCity.value)
+        }
+
+        const response = await $fetch<PaginatedSearchResponse>(
+          `${apiBase}/search/browse?${params}`
+        )
+
+        results.value = response.data
+        totalResults.value = response.meta.total
+        totalPages.value = response.meta.last_page
+        currentPage.value = response.meta.current_page
+        rankingExplanation.value = response.ranking_explanation
+        rankingTechnicalDetail.value = response.ranking_technical_detail || ''
+        hasSearched.value = true
+
+        metrics.value = {
+          duration_ms: response.metrics.duration_ms,
+          rows_returned: response.metrics.rows_returned,
+          query_source: response.metrics.query_source,
+          executed_at: response.metrics.executed_at,
+          query_type: response.metrics.query_type,
+          search_term: response.metrics.search_term,
+        }
+        detailedMetrics.value = response.metrics
+
+        console.log(`[Browse] country="${selectedCountry.value}"${selectedCity.value ? ` city="${selectedCity.value}"` : ''} → ${response.meta.total} total, page ${response.meta.current_page}/${response.meta.last_page}, ${response.metrics.duration_ms.toFixed(2)}ms`)
       }
     } catch (e: any) {
       error.value = e.data?.error || e.data?.message || e.message || 'Search failed'
@@ -179,7 +218,7 @@ export function useSearch() {
   }
 
   /**
-   * Handle country change — reset city, fetch new cities, and re-search if applicable
+   * Handle country change — reset city, fetch new cities, trigger search
    */
   function onCountryChange(country: string) {
     selectedCountry.value = country
@@ -192,9 +231,15 @@ export function useSearch() {
       cities.value = []
     }
 
-    // Auto re-search if user has already searched
-    if (hasSearched.value && searchTerm.value.trim().length >= 2) {
+    // Trigger search if country is set or a search term is already entered
+    if (country || searchTerm.value.trim().length >= 2) {
       search()
+    } else {
+      // Cleared country and no term — reset results
+      results.value = []
+      metrics.value = null
+      detailedMetrics.value = null
+      hasSearched.value = false
     }
   }
 
@@ -205,8 +250,8 @@ export function useSearch() {
     selectedCity.value = city
     currentPage.value = 1
 
-    // Auto re-search if user has already searched
-    if (hasSearched.value && searchTerm.value.trim().length >= 2) {
+    // Re-search if we have something to search with
+    if (selectedCountry.value || searchTerm.value.trim().length >= 2) {
       search()
     }
   }
