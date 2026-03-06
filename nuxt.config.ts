@@ -6,6 +6,12 @@ export default defineNuxtConfig({
     compatibilityVersion: 4,
   },
 
+  runtimeConfig: {
+    public: {
+      apiBase: process.env.API_BASE_URL || 'http://localhost:3331/api',
+    },
+  },
+
   app: {
     head: {
       title: 'Institution Search',
@@ -20,6 +26,4 @@ export default defineNuxtConfig({
       ],
     },
   },
-
-  nitro: {},
 })

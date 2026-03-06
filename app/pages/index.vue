@@ -4,9 +4,17 @@ const {
   cities,
   results,
   metrics,
-  totalMatches,
+  detailedMetrics,
+  rankingExplanation,
+  rankingTechnicalDetail,
+  totalResults,
   selectedCountry,
   selectedCity,
+  searchTerm,
+  rankingMethod,
+  currentPage,
+  totalPages,
+  perPage,
   isLoadingCountries,
   isLoadingCities,
   isSearching,
@@ -14,8 +22,11 @@ const {
   hasSearched,
   fetchCountries,
   search,
+  goToPage,
+  onRankingChange,
   onCountryChange,
   onCityChange,
+  onSearchTermChange,
 } = useSearch()
 
 onMounted(() => {
@@ -46,26 +57,35 @@ onMounted(() => {
           :cities="cities"
           :selected-country="selectedCountry"
           :selected-city="selectedCity"
+          :search-term="searchTerm"
+          :ranking-method="rankingMethod"
           :is-loading-countries="isLoadingCountries"
           :is-loading-cities="isLoadingCities"
           :is-searching="isSearching"
           :error="error"
           @country-change="onCountryChange"
           @city-change="onCityChange"
+          @search-term-change="onSearchTermChange"
+          @ranking-change="onRankingChange"
           @search="search"
         />
 
         <ResultsList
           :results="results"
           :metrics="metrics"
-          :total-matches="totalMatches"
+          :detailed-metrics="detailedMetrics"
+          :ranking-explanation="rankingExplanation"
+          :ranking-technical-detail="rankingTechnicalDetail"
+          :total-results="totalResults"
+          :current-page="currentPage"
+          :total-pages="totalPages"
+          :per-page="perPage"
           :is-searching="isSearching"
           :has-searched="hasSearched"
+          @page-change="goToPage"
         />
       </div>
     </main>
-
-    <!-- Footer -->
   </div>
 </template>
 
@@ -109,15 +129,6 @@ onMounted(() => {
   color: #7c3aed;
 }
 
-.badge {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #7c3aed;
-  background: #ede9fe;
-  padding: 4px 12px;
-  border-radius: 20px;
-}
-
 /* Main content */
 .main-content {
   flex: 1;
@@ -141,17 +152,5 @@ onMounted(() => {
     align-items: flex-start;
     max-width: 1120px;
   }
-}
-
-/* Footer */
-.footer {
-  text-align: center;
-  padding: 20px 24px;
-  color: #9ca3af;
-  font-size: 0.8rem;
-}
-
-.footer p {
-  margin: 0;
 }
 </style>

@@ -1,31 +1,27 @@
 <script setup lang="ts">
-interface Institution {
-  id: number
-  organisation_name: string
-  city: string | null
-  country: string | null
-  street_1?: string | null
-  street_2?: string | null
-  website?: string | null
-}
-
-interface QueryMetrics {
-  duration_ms: number
-  result_count: number
-  query_source: string
-  scan_type?: string
-  index_used?: string
-}
+import type { Institution, QueryMetrics } from '~/types/search'
 
 interface Props {
   results: Institution[]
   metrics: QueryMetrics | null
-  totalMatches: number
+  detailedMetrics: QueryMetrics | null
+  rankingExplanation: string
+  rankingTechnicalDetail: string
+  totalResults: number
+  currentPage: number
+  totalPages: number
+  perPage: number
   isSearching: boolean
   hasSearched: boolean
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
+
+const emit = defineEmits<{
+  'page-change': [page: number]
+}>()
+
+const metricsExpanded = ref(false)
 
 function formatWebsite(url: string): string {
   return url.replace(/^https?:\/\//, '').replace(/\/$/, '')
@@ -35,18 +31,53 @@ function getWebsiteHref(url: string): string {
   return url.startsWith('http') ? url : `https://${url}`
 }
 
+const showingFrom = computed(() => {
+  if (props.totalResults === 0) return 0
+  return (props.currentPage - 1) * props.perPage + 1
+})
 
+const showingTo = computed(() => {
+  return Math.min(props.currentPage * props.perPage, props.totalResults)
+})
+
+/**
+ * Build page numbers with ellipsis for large page counts
+ */
+const pageNumbers = computed(() => {
+  const total = props.totalPages
+  const current = props.currentPage
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+  const pages: (number | string)[] = [1]
+  if (current > 3) pages.push('...')
+  const start = Math.max(2, current - 1)
+  const end = Math.min(total - 1, current + 1)
+  for (let i = start; i <= end; i++) {
+    pages.push(i)
+  }
+  if (current < total - 2) pages.push('...')
+  pages.push(total)
+  return pages
+})
+
+function handlePageClick(page: number | string) {
+  if (typeof page === 'number') {
+    emit('page-change', page)
+  }
+}
 </script>
 
 <template>
   <div class="results-panel">
     <!-- Sticky metrics bar -->
-    <div v-if="metrics" class="metrics-bar">
+    <div v-if="metrics && hasSearched" class="metrics-bar">
       <div class="metrics-left">
         <span class="result-count">
-          <strong>{{ metrics.result_count }}</strong>
-          <span v-if="totalMatches > metrics.result_count"> of {{ totalMatches.toLocaleString() }}</span>
-          results
+          <strong>{{ totalResults.toLocaleString() }}</strong> results
+          <span v-if="totalResults > 0" class="showing-range">
+            (showing {{ showingFrom }}&ndash;{{ showingTo }})
+          </span>
         </span>
       </div>
       <div class="metrics-right">
@@ -57,7 +88,79 @@ function getWebsiteHref(url: string): string {
           </svg>
           {{ metrics.duration_ms.toFixed(1) }}ms
         </span>
+        <button class="metric-chip metric-toggle" @click="metricsExpanded = !metricsExpanded">
+          {{ metricsExpanded ? 'Hide Details' : 'Show Details' }}
+          <svg
+            width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"
+            :class="{ rotated: metricsExpanded }"
+            class="toggle-arrow"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
       </div>
+    </div>
+
+    <!-- Collapsible Detailed Metrics Panel -->
+    <Transition name="slide">
+      <div v-if="metricsExpanded && detailedMetrics" class="metrics-detail">
+        <!-- Technical ranking detail -->
+        <div v-if="rankingTechnicalDetail" class="technical-detail">
+          <span class="technical-label">Search Strategy</span>
+          <span class="technical-text">{{ rankingTechnicalDetail }}</span>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-label">Query Source</span>
+            <span class="metric-value">{{ detailedMetrics.query_source }}</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Search Method</span>
+            <span class="metric-value">{{ detailedMetrics.query_type || 'N/A' }}</span>
+          </div>
+          <div v-if="detailedMetrics.explain" class="metric-card">
+            <span class="metric-label">Scan Type</span>
+            <span class="metric-value">{{ detailedMetrics.explain.scan_type || detailedMetrics.explain.node_type }}</span>
+          </div>
+          <div v-if="detailedMetrics.explain?.index_used" class="metric-card">
+            <span class="metric-label">Index Used</span>
+            <span class="metric-value index-name">{{ detailedMetrics.explain.index_used }}</span>
+          </div>
+          <div v-if="detailedMetrics.explain" class="metric-card">
+            <span class="metric-label">Planning Time</span>
+            <span class="metric-value">{{ detailedMetrics.explain.planning_time_ms.toFixed(2) }}ms</span>
+          </div>
+          <div v-if="detailedMetrics.explain" class="metric-card">
+            <span class="metric-label">Execution Time</span>
+            <span class="metric-value">{{ detailedMetrics.explain.execution_time_ms.toFixed(2) }}ms</span>
+          </div>
+          <div v-if="detailedMetrics.connection" class="metric-card">
+            <span class="metric-label">Region</span>
+            <span class="metric-value">{{ detailedMetrics.connection.region }}</span>
+          </div>
+          <div v-if="detailedMetrics.connection" class="metric-card">
+            <span class="metric-label">Table</span>
+            <span class="metric-value index-name">{{ detailedMetrics.connection.table_used }}</span>
+          </div>
+          <div v-if="detailedMetrics.explain?.buffers" class="metric-card">
+            <span class="metric-label">Buffer Hits</span>
+            <span class="metric-value">{{ detailedMetrics.explain.buffers.shared_hit ?? 0 }}</span>
+          </div>
+          <div v-if="detailedMetrics.explain?.buffers" class="metric-card">
+            <span class="metric-label">Buffer Reads</span>
+            <span class="metric-value">{{ detailedMetrics.explain.buffers.shared_read ?? 0 }}</span>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Ranking Explanation -->
+    <div v-if="rankingExplanation && hasSearched && results.length > 0" class="ranking-explanation">
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 16v-4M12 8h.01" stroke-linecap="round" />
+      </svg>
+      <span>{{ rankingExplanation }}</span>
     </div>
 
     <!-- Loading skeletons -->
@@ -79,14 +182,18 @@ function getWebsiteHref(url: string): string {
         </svg>
       </div>
       <h3>No results found</h3>
-      <p>No institutions matched your search criteria. Try selecting a different city or searching all cities.</p>
+      <p>No institutions matched your search criteria. Try a different term or adjust the ranking method.</p>
     </div>
 
-    <!-- Results -->
-    <TransitionGroup v-else-if="results.length > 0" name="list" tag="ul" class="results-list">
-      <li v-for="(institution, index) in results" :key="institution.id" class="result-card" :style="{ animationDelay: `${index * 30}ms` }">
-        <div class="card-header">
+    <!-- Results (scrollable container) -->
+    <div v-else-if="results.length > 0" class="results-scroll-container">
+      <TransitionGroup name="list" tag="ul" class="results-list">
+        <li v-for="(institution, index) in results" :key="institution.id" class="result-card" :style="{ animationDelay: `${index * 30}ms` }">
+          <div class="card-header">
           <h3 class="inst-name">{{ institution.organisation_name }}</h3>
+          <span v-if="institution.relevance != null" class="relevance-badge">
+            {{ (institution.relevance * 100).toFixed(0) }}%
+          </span>
         </div>
 
         <div class="card-body">
@@ -131,6 +238,7 @@ function getWebsiteHref(url: string): string {
         </div>
       </li>
     </TransitionGroup>
+    </div>
 
     <!-- Initial state -->
     <div v-else class="initial-state">
@@ -141,7 +249,49 @@ function getWebsiteHref(url: string): string {
         </svg>
       </div>
       <h3>Search Institutions Worldwide</h3>
-      <p>Select a country and optionally a city, then click Search to find institutions.</p>
+      <p>Enter an institution name and click Search to find results across all regions.</p>
+    </div>
+
+    <!-- Pagination Controls -->
+    <div v-if="totalPages > 1 && !isSearching" class="pagination">
+      <div class="pagination-info">
+        Page {{ currentPage }} of {{ totalPages }}
+      </div>
+      <div class="pagination-controls">
+        <button
+          class="page-btn nav-btn"
+          :disabled="currentPage <= 1"
+          @click="handlePageClick(currentPage - 1)"
+        >
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Prev
+        </button>
+
+        <template v-for="(page, i) in pageNumbers" :key="i">
+          <span v-if="page === '...'" class="page-ellipsis">&hellip;</span>
+          <button
+            v-else
+            class="page-btn"
+            :class="{ active: page === currentPage }"
+            @click="handlePageClick(page)"
+          >
+            {{ page }}
+          </button>
+        </template>
+
+        <button
+          class="page-btn nav-btn"
+          :disabled="currentPage >= totalPages"
+          @click="handlePageClick(currentPage + 1)"
+        >
+          Next
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -156,11 +306,11 @@ function getWebsiteHref(url: string): string {
   padding: 0;
   width: 100%;
   max-width: 640px;
-  max-height: 600px;
-  overflow-y: auto;
   border: 1px solid rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
+  max-height: calc(100vh - 140px);
+  overflow: hidden;
 }
 
 /* Metrics bar - sticky */
@@ -189,9 +339,15 @@ function getWebsiteHref(url: string): string {
   font-weight: 700;
 }
 
+.showing-range {
+  color: #9ca3af;
+  font-size: 0.8rem;
+}
+
 .metrics-right {
   display: flex;
   gap: 8px;
+  align-items: center;
 }
 
 .metric-chip {
@@ -204,10 +360,130 @@ function getWebsiteHref(url: string): string {
   font-weight: 600;
   background: #f3f4f6;
   color: #6b7280;
+  border: none;
+  cursor: default;
 }
 
-.metric-chip.source {
+.metric-toggle {
+  cursor: pointer;
   background: #ede9fe;
+  color: #7c3aed;
+  transition: background 0.15s;
+  font-family: inherit;
+}
+
+.metric-toggle:hover {
+  background: #ddd6fe;
+}
+
+.toggle-arrow {
+  transition: transform 0.2s ease;
+}
+
+.toggle-arrow.rotated {
+  transform: rotate(180deg);
+}
+
+/* Collapsible Metrics Detail Panel */
+.metrics-detail {
+  background: #f9fafb;
+  border-bottom: 1px solid #f0f0f0;
+  padding: 16px 24px;
+}
+
+.technical-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.technical-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9ca3af;
+}
+
+.technical-text {
+  font-size: 0.8rem;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: #4b5563;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.metric-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9ca3af;
+}
+
+.metric-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.metric-value.index-name {
+  font-size: 0.75rem;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  word-break: break-all;
+}
+
+.slide-enter-active,
+.slide-leave-active {
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.slide-enter-from,
+.slide-leave-to {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* Ranking Explanation */
+.ranking-explanation {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 24px;
+  background: #ede9fe;
+  border-bottom: 1px solid #ddd6fe;
+  font-size: 0.8rem;
+  color: #5b21b6;
+  line-height: 1.5;
+}
+
+.ranking-explanation svg {
+  flex-shrink: 0;
+  margin-top: 2px;
   color: #7c3aed;
 }
 
@@ -284,7 +560,13 @@ function getWebsiteHref(url: string): string {
   margin-inline: auto;
 }
 
-/* Results list */
+/* Results list - scrollable */
+.results-scroll-container {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
 .results-list {
   list-style: none;
   padding: 8px 24px;
@@ -339,6 +621,16 @@ function getWebsiteHref(url: string): string {
   line-height: 1.3;
 }
 
+.relevance-badge {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #7c3aed;
+  background: #ede9fe;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
 .card-body {
   display: flex;
   flex-direction: column;
@@ -378,5 +670,80 @@ function getWebsiteHref(url: string): string {
 
 .inst-website svg {
   flex-shrink: 0;
+}
+
+/* Pagination */
+.pagination {
+  padding: 16px 24px;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+  border-radius: 0 0 16px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.pagination-info {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.page-btn:hover:not(:disabled):not(.active) {
+  border-color: #c4b5fd;
+  color: #7c3aed;
+}
+
+.page-btn.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border-color: transparent;
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.nav-btn {
+  padding: 0 12px;
+}
+
+.page-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  color: #9ca3af;
+  font-size: 0.85rem;
 }
 </style>

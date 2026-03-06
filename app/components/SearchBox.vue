@@ -1,9 +1,13 @@
 <script setup lang="ts">
+import type { RankingMethod } from '~/composables/useSearch'
+
 interface Props {
   countries: string[]
   cities: string[]
   selectedCountry: string
   selectedCity: string
+  searchTerm: string
+  rankingMethod: RankingMethod
   isLoadingCountries: boolean
   isLoadingCities: boolean
   isSearching: boolean
@@ -15,19 +19,25 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   'country-change': [country: string]
   'city-change': [city: string]
+  'search-term-change': [term: string]
+  'ranking-change': [method: RankingMethod]
   search: []
 }>()
 
-const cityFilter = ref('')
 
-const filteredCities = computed(() => {
-  if (!cityFilter.value) return props.cities
-  const q = cityFilter.value.toLowerCase()
-  return props.cities.filter((c) => c.toLowerCase().includes(q))
+const canSearch = computed(() => {
+  return props.searchTerm.trim().length >= 2 && !props.isSearching
 })
 
+function handleSearchTermInput(event: Event) {
+  emit('search-term-change', (event.target as HTMLInputElement).value)
+}
+
+function handleRankingChange(event: Event) {
+  emit('ranking-change', (event.target as HTMLSelectElement).value as RankingMethod)
+}
+
 function handleCountryChange(event: Event) {
-  cityFilter.value = ''
   emit('country-change', (event.target as HTMLSelectElement).value)
 }
 
@@ -40,7 +50,7 @@ function handleSearch() {
 }
 
 function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Enter' && props.selectedCountry && !props.isSearching) {
+  if (e.key === 'Enter' && canSearch.value) {
     emit('search')
   }
 }
@@ -71,6 +81,51 @@ function handleKeydown(e: KeyboardEvent) {
       </div>
     </Transition>
 
+    <!-- Institution Name Search -->
+    <div class="field">
+      <label for="search-input">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" stroke-linecap="round" />
+        </svg>
+        Institution Name
+      </label>
+      <input
+        id="search-input"
+        type="text"
+        :value="searchTerm"
+        placeholder='e.g. "university", "school", "college"'
+        autocomplete="off"
+        @input="handleSearchTermInput"
+      />
+      <div class="field-hint">Minimum 2 characters. Supports phrases and boolean operators.</div>
+    </div>
+
+    <!-- Ranking Method -->
+    <div class="field">
+      <label for="ranking-select">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </svg>
+        Ranking Method
+      </label>
+      <div class="select-wrapper">
+        <select
+          id="ranking-select"
+          :value="rankingMethod"
+          @change="handleRankingChange"
+        >
+          <option value="websearch">Best Match (Relevance)</option>
+          <option value="trgm">Fuzzy Match (Typo-tolerant)</option>
+        </select>
+        <div class="select-arrow">
+          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+      </div>
+    </div>
+
     <!-- Country -->
     <div class="field">
       <label for="country-select">
@@ -79,6 +134,7 @@ function handleKeydown(e: KeyboardEvent) {
           <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
         </svg>
         Country
+        <span class="optional-tag">optional</span>
       </label>
       <div class="select-wrapper">
         <select
@@ -88,7 +144,7 @@ function handleKeydown(e: KeyboardEvent) {
           @change="handleCountryChange"
         >
           <option value="">
-            {{ isLoadingCountries ? 'Loading countries...' : 'Select a country' }}
+            {{ isLoadingCountries ? 'Loading countries...' : 'All countries' }}
           </option>
           <option v-for="country in countries" :key="country" :value="country">
             {{ country }}
@@ -113,7 +169,6 @@ function handleKeydown(e: KeyboardEvent) {
         <span class="optional-tag">optional</span>
       </label>
 
-      <!-- City filter text input (shown when many cities) -->
       <div class="select-wrapper">
         <select
           id="city-select"
@@ -130,7 +185,7 @@ function handleKeydown(e: KeyboardEvent) {
                   : 'All cities'
             }}
           </option>
-          <option v-for="city in filteredCities" :key="city" :value="city">
+          <option v-for="city in cities" :key="city" :value="city">
             {{ city }}
           </option>
         </select>
@@ -141,14 +196,14 @@ function handleKeydown(e: KeyboardEvent) {
         </div>
       </div>
       <div v-if="cities.length > 0 && selectedCountry" class="field-hint">
-        {{ filteredCities.length }} cities available
+        {{ cities.length }} cities available
       </div>
     </div>
 
     <!-- Search Button -->
     <button
       class="search-btn"
-      :disabled="!selectedCountry || isSearching"
+      :disabled="!canSearch"
       @click="handleSearch"
     >
       <template v-if="isSearching">
@@ -260,6 +315,33 @@ label {
   position: relative;
 }
 
+input[type="text"] {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  background: #fff;
+  color: #1f2937;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+input[type="text"]::placeholder {
+  color: #9ca3af;
+}
+
+input[type="text"]:hover {
+  border-color: #c4b5fd;
+}
+
+input[type="text"]:focus {
+  outline: none;
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+}
+
 select {
   width: 100%;
   padding: 11px 36px 11px 14px;
@@ -298,26 +380,6 @@ select:disabled {
   transform: translateY(-50%);
   color: #9ca3af;
   pointer-events: none;
-}
-
-.city-filter-input {
-  width: 100%;
-  padding: 9px 14px;
-  border: 1.5px solid #e5e7eb;
-  border-radius: 10px;
-  font-size: 0.875rem;
-  font-family: inherit;
-  background: #fafafa;
-  color: #1f2937;
-  margin-bottom: 8px;
-  transition: all 0.15s ease;
-}
-
-.city-filter-input:focus {
-  outline: none;
-  border-color: #7c3aed;
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
-  background: #fff;
 }
 
 .field-hint {
