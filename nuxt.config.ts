@@ -7,8 +7,15 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
+    googlePlacesApiKey: '',
+    googleAddressValidationApiKey: '',
+    appleMapsTeamId: '',
+    appleMapsKeyId: '',
+    appleMapsPrivateKey: '',
+    mapboxAccessToken: '',
     public: {
       apiBase: process.env.API_BASE_URL || 'http://localhost:3331/api',
+      mapboxAccessToken: '',
     },
   },
 

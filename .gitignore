@@ -22,5 +22,8 @@ logs
 .env.*
 !.env.example
 
+# Apple Maps private key file — store content in NUXT_APPLE_MAPS_PRIVATE_KEY env var instead
+*.p8
+
 # Data files (too large for git)
 data/institutions.json

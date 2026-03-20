@@ -2,9 +2,10 @@ import type {
   Institution,
   QueryMetrics,
   PaginatedSearchResponse,
-  LocationResponse,
   RankingMethod,
 } from '~/types/search'
+import { countries as staticCountries } from '~/utils/countries'
+import { citiesByCountry } from '~/utils/cities'
 
 export type { RankingMethod }
 
@@ -43,48 +44,25 @@ export function useSearch() {
   const hasSearched = ref(false)
 
   /**
-   * Fetch all distinct countries from the API
+   * Load countries from static data
    */
-  async function fetchCountries() {
-    isLoadingCountries.value = true
-    error.value = null
-
-    try {
-      const response = await $fetch<LocationResponse>(`${apiBase}/locations/countries`)
-      countries.value = response.results
-      console.log(`[Countries] Loaded ${response.results.length} countries in ${response.metrics.duration_ms.toFixed(2)}ms`)
-    } catch (e: any) {
-      error.value = e.data?.message || e.message || 'Failed to load countries'
-      console.error('[Countries] Error:', e)
-    } finally {
-      isLoadingCountries.value = false
-    }
+  function fetchCountries() {
+    countries.value = staticCountries
+    console.log(`[Countries] Loaded ${staticCountries.length} countries (static)`)
   }
 
   /**
-   * Fetch cities for a given country
+   * Load cities from static data for a given country
    */
-  async function fetchCities(country: string) {
+  function fetchCities(country: string) {
     if (!country) {
       cities.value = []
       return
     }
 
-    isLoadingCities.value = true
-    error.value = null
-
-    try {
-      const response = await $fetch<LocationResponse>(
-        `${apiBase}/locations/cities/${encodeURIComponent(country)}`
-      )
-      cities.value = response.results
-      console.log(`[Cities] Loaded ${response.results.length} cities for ${country} in ${response.metrics.duration_ms.toFixed(2)}ms`)
-    } catch (e: any) {
-      error.value = e.data?.message || e.message || 'Failed to load cities'
-      console.error('[Cities] Error:', e)
-    } finally {
-      isLoadingCities.value = false
-    }
+    const staticCities = citiesByCountry[country] || []
+    cities.value = staticCities
+    console.log(`[Cities] Loaded ${staticCities.length} cities for ${country} (static)`)
   }
 
   /**

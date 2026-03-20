@@ -11,6 +11,8 @@
     "export-data": "bash scripts/export-data.sh"
   },
   "dependencies": {
+    "@mapbox/search-js-web": "^1.5.1",
+    "jsonwebtoken": "^9.0.3",
     "nuxt": "^3.14.0",
     "vue": "^3.5.0"
   },

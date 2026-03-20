@@ -58,36 +58,16 @@ function handleKeydown(e: KeyboardEvent) {
 
 <template>
   <div class="search-box" @keydown="handleKeydown">
-    <!-- Header -->
-    <div class="search-header">
-      <div class="header-icon">
-        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.35-4.35" stroke-linecap="round" />
-        </svg>
-      </div>
-      <h2>Find Institutions</h2>
-    </div>
-
     <!-- Error -->
     <Transition name="fade">
       <div v-if="error" class="error-banner" role="alert">
-        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
-        <span>{{ error }}</span>
+        {{ error }}
       </div>
     </Transition>
 
     <!-- Institution Name Search -->
     <div class="field">
       <label for="search-input">
-        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.35-4.35" stroke-linecap="round" />
-        </svg>
         Institution Name
       </label>
       <input
@@ -104,97 +84,64 @@ function handleKeydown(e: KeyboardEvent) {
     <!-- Ranking Method -->
     <div class="field">
       <label for="ranking-select">
-        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-        </svg>
         Ranking Method
       </label>
-      <div class="select-wrapper">
-        <select
-          id="ranking-select"
-          :value="rankingMethod"
-          @change="handleRankingChange"
-        >
-          <option value="websearch">Best Match (Relevance)</option>
-          <option value="trgm">Fuzzy Match (Typo-tolerant)</option>
-        </select>
-        <div class="select-arrow">
-          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </div>
-      </div>
+      <select
+        id="ranking-select"
+        :value="rankingMethod"
+        @change="handleRankingChange"
+      >
+        <option value="websearch">Best Match (Relevance)</option>
+        <option value="trgm">Fuzzy Match (Typo-tolerant)</option>
+      </select>
     </div>
 
     <!-- Country -->
     <div class="field">
       <label for="country-select">
-        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-        </svg>
         Country
         <span class="optional-tag">optional</span>
       </label>
-      <div class="select-wrapper">
-        <select
-          id="country-select"
-          :value="selectedCountry"
-          :disabled="isLoadingCountries"
-          @change="handleCountryChange"
-        >
-          <option value="">
-            {{ isLoadingCountries ? 'Loading countries...' : 'All countries' }}
-          </option>
-          <option v-for="country in countries" :key="country" :value="country">
-            {{ country }}
-          </option>
-        </select>
-        <div class="select-arrow">
-          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </div>
-      </div>
+      <select
+        id="country-select"
+        :value="selectedCountry"
+        :disabled="isLoadingCountries"
+        @change="handleCountryChange"
+      >
+        <option value="">
+          {{ isLoadingCountries ? 'Loading countries...' : 'All countries' }}
+        </option>
+        <option v-for="country in countries" :key="country" :value="country">
+          {{ country }}
+        </option>
+      </select>
     </div>
 
     <!-- City -->
     <div class="field">
       <label for="city-select">
-        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-          <circle cx="12" cy="10" r="3" />
-        </svg>
         City / Town
         <span class="optional-tag">optional</span>
       </label>
-
-      <div class="select-wrapper">
-        <select
-          id="city-select"
-          :value="selectedCity"
-          :disabled="!selectedCountry || isLoadingCities"
-          @change="handleCityChange"
-        >
-          <option value="">
-            {{
-              isLoadingCities
-                ? 'Loading cities...'
-                : !selectedCountry
-                  ? 'Select a country first'
-                  : 'All cities'
-            }}
-          </option>
-          <option v-for="city in cities" :key="city" :value="city">
-            {{ city }}
-          </option>
-        </select>
-        <div class="select-arrow">
-          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </div>
-      </div>
+      <select
+        id="city-select"
+        :value="selectedCity"
+        :disabled="!selectedCountry || isLoadingCities"
+        @change="handleCityChange"
+      >
+        <option value="">
+          {{
+            isLoadingCities
+              ? 'Loading cities...'
+              : !selectedCountry
+                ? 'Select a country first'
+                : 'All cities'
+          }}
+        </option>
+        <option v-for="city in cities" :key="city" :value="city">
+          {{ city }}
+        </option>
+      </select>
       <div v-if="cities.length > 0 && selectedCountry" class="field-hint">
         {{ cities.length }} cities available
       </div>
@@ -203,7 +150,6 @@ function handleKeydown(e: KeyboardEvent) {
     <!-- Search Button -->
     <button
       class="search-btn"
-      :disabled="!canSearch"
       @click="handleSearch"
     >
       <template v-if="isSearching">
@@ -211,10 +157,6 @@ function handleKeydown(e: KeyboardEvent) {
         Searching...
       </template>
       <template v-else>
-        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.35-4.35" stroke-linecap="round" />
-        </svg>
         Search
       </template>
     </button>
@@ -235,22 +177,7 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 .search-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   margin-bottom: 24px;
-}
-
-.header-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: #fff;
-  flex-shrink: 0;
 }
 
 h2 {
@@ -287,7 +214,7 @@ h2 {
 
 /* Fields */
 .field {
-  margin-bottom: 18px;
+  margin-bottom: 22px;
 }
 
 label {
@@ -311,10 +238,6 @@ label {
   margin-left: 4px;
 }
 
-.select-wrapper {
-  position: relative;
-}
-
 input[type="text"] {
   width: 100%;
   padding: 11px 14px;
@@ -333,18 +256,18 @@ input[type="text"]::placeholder {
 }
 
 input[type="text"]:hover {
-  border-color: #c4b5fd;
+  border-color: #93c5fd;
 }
 
 input[type="text"]:focus {
   outline: none;
-  border-color: #7c3aed;
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 select {
   width: 100%;
-  padding: 11px 36px 11px 14px;
+  padding: 11px 14px;
   border: 1.5px solid #e5e7eb;
   border-radius: 10px;
   font-size: 0.95rem;
@@ -353,33 +276,22 @@ select {
   color: #1f2937;
   cursor: pointer;
   transition: all 0.15s ease;
-  appearance: none;
-  -webkit-appearance: none;
 }
 
 select:hover:not(:disabled) {
-  border-color: #c4b5fd;
+  border-color: #93c5fd;
 }
 
 select:focus {
   outline: none;
-  border-color: #7c3aed;
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 select:disabled {
   background: #f9fafb;
   color: #9ca3af;
   cursor: not-allowed;
-}
-
-.select-arrow {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #9ca3af;
-  pointer-events: none;
 }
 
 .field-hint {
@@ -396,7 +308,7 @@ select:disabled {
   justify-content: center;
   gap: 8px;
   padding: 13px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: #2563eb;
   color: #fff;
   border: none;
   border-radius: 12px;
@@ -410,7 +322,7 @@ select:disabled {
 
 .search-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
 }
 
 .search-btn:active:not(:disabled) {

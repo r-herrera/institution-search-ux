@@ -82,21 +82,10 @@ function handlePageClick(page: number | string) {
       </div>
       <div class="metrics-right">
         <span class="metric-chip">
-          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
-          </svg>
           {{ metrics.duration_ms.toFixed(1) }}ms
         </span>
         <button class="metric-chip metric-toggle" @click="metricsExpanded = !metricsExpanded">
           {{ metricsExpanded ? 'Hide Details' : 'Show Details' }}
-          <svg
-            width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"
-            :class="{ rotated: metricsExpanded }"
-            class="toggle-arrow"
-          >
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
         </button>
       </div>
     </div>
@@ -156,10 +145,6 @@ function handlePageClick(page: number | string) {
 
     <!-- Ranking Explanation -->
     <div v-if="rankingExplanation && hasSearched && results.length > 0" class="ranking-explanation">
-      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10" />
-        <path d="M12 16v-4M12 8h.01" stroke-linecap="round" />
-      </svg>
       <span>{{ rankingExplanation }}</span>
     </div>
 
@@ -174,13 +159,7 @@ function handlePageClick(page: number | string) {
 
     <!-- Empty state after search -->
     <div v-else-if="results.length === 0 && hasSearched" class="empty-state">
-      <div class="empty-illustration">
-        <svg width="64" height="64" fill="none" viewBox="0 0 24 24" stroke="#c4b5fd" stroke-width="1.5">
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.35-4.35" stroke-linecap="round" />
-          <path d="M8 11h6" stroke-linecap="round" />
-        </svg>
-      </div>
+      <div class="empty-illustration" />
       <h3>No results found</h3>
       <p>No institutions matched your search criteria. Try a different term or adjust the ranking method.</p>
     </div>
@@ -198,10 +177,6 @@ function handlePageClick(page: number | string) {
 
         <div class="card-body">
           <div class="inst-location">
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
             <span>
               {{ institution.city
               }}{{ institution.city && institution.country ? ', ' : ''
@@ -210,11 +185,6 @@ function handlePageClick(page: number | string) {
           </div>
 
           <div v-if="institution.street_1" class="inst-address">
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <line x1="3" y1="9" x2="21" y2="9" />
-              <line x1="9" y1="21" x2="9" y2="9" />
-            </svg>
             <span>
               {{ institution.street_1 }}
               <template v-if="institution.street_2">, {{ institution.street_2 }}</template>
@@ -228,11 +198,6 @@ function handlePageClick(page: number | string) {
             rel="noopener noreferrer"
             class="inst-website"
           >
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-              <polyline points="15 3 21 3 21 9" />
-              <line x1="10" y1="14" x2="21" y2="3" />
-            </svg>
             {{ formatWebsite(institution.website) }}
           </a>
         </div>
@@ -242,12 +207,7 @@ function handlePageClick(page: number | string) {
 
     <!-- Initial state -->
     <div v-else class="initial-state">
-      <div class="initial-illustration">
-        <svg width="64" height="64" fill="none" viewBox="0 0 24 24" stroke="#d1d5db" stroke-width="1.5">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-        </svg>
-      </div>
+      <div class="initial-illustration" />
       <h3>Search Institutions Worldwide</h3>
       <p>Enter an institution name and click Search to find results across all regions.</p>
     </div>
@@ -263,9 +223,6 @@ function handlePageClick(page: number | string) {
           :disabled="currentPage <= 1"
           @click="handlePageClick(currentPage - 1)"
         >
-          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
           Prev
         </button>
 
@@ -287,9 +244,6 @@ function handlePageClick(page: number | string) {
           @click="handlePageClick(currentPage + 1)"
         >
           Next
-          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
         </button>
       </div>
     </div>
@@ -366,14 +320,14 @@ function handlePageClick(page: number | string) {
 
 .metric-toggle {
   cursor: pointer;
-  background: #ede9fe;
-  color: #7c3aed;
+  background: #dbeafe;
+  color: #2563eb;
   transition: background 0.15s;
   font-family: inherit;
 }
 
 .metric-toggle:hover {
-  background: #ddd6fe;
+  background: #bfdbfe;
 }
 
 .toggle-arrow {
@@ -474,17 +428,17 @@ function handlePageClick(page: number | string) {
   align-items: flex-start;
   gap: 8px;
   padding: 12px 24px;
-  background: #ede9fe;
-  border-bottom: 1px solid #ddd6fe;
+  background: #dbeafe;
+  border-bottom: 1px solid #93c5fd;
   font-size: 0.8rem;
-  color: #5b21b6;
+  color: #1e40af;
   line-height: 1.5;
 }
 
 .ranking-explanation svg {
   flex-shrink: 0;
   margin-top: 2px;
-  color: #7c3aed;
+  color: #2563eb;
 }
 
 /* Skeleton loading */
@@ -625,8 +579,8 @@ function handlePageClick(page: number | string) {
   flex-shrink: 0;
   font-size: 0.7rem;
   font-weight: 700;
-  color: #7c3aed;
-  background: #ede9fe;
+  color: #2563eb;
+  background: #dbeafe;
   padding: 2px 8px;
   border-radius: 12px;
 }
@@ -657,14 +611,14 @@ function handlePageClick(page: number | string) {
   align-items: center;
   gap: 6px;
   font-size: 0.85rem;
-  color: #7c3aed;
+  color: #2563eb;
   text-decoration: none;
   margin-top: 2px;
   transition: color 0.15s;
 }
 
 .inst-website:hover {
-  color: #6d28d9;
+  color: #1d4ed8;
   text-decoration: underline;
 }
 
@@ -718,12 +672,12 @@ function handlePageClick(page: number | string) {
 }
 
 .page-btn:hover:not(:disabled):not(.active) {
-  border-color: #c4b5fd;
-  color: #7c3aed;
+  border-color: #93c5fd;
+  color: #2563eb;
 }
 
 .page-btn.active {
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: #2563eb;
   color: #fff;
   border-color: transparent;
 }

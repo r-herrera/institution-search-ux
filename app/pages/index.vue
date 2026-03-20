@@ -40,12 +40,11 @@ onMounted(() => {
     <header class="top-bar">
       <div class="top-bar-inner">
         <div class="logo">
-          <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-          </svg>
           <span>Institution Search</span>
         </div>
+        <NuxtLink to="/register" class="register-link">
+          Register School
+        </NuxtLink>
       </div>
     </header>
 
@@ -125,8 +124,25 @@ onMounted(() => {
   color: #1a1a2e;
 }
 
+.register-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #2563eb;
+  text-decoration: none;
+  background: #eff6ff;
+  transition: all 0.15s ease;
+}
+
+.register-link:hover {
+  background: #dbeafe;
+}
+
 .logo svg {
-  color: #7c3aed;
+  color: #2563eb;
 }
 
 /* Main content */
