@@ -32,6 +32,8 @@ const tabs = [
   { label: 'Google Places', to: '/register/google' },
   { label: 'Apple Maps', to: '/register/apple' },
   { label: 'Mapbox Search JS', to: '/register/mapbox-search-js' },
+  { label: 'Amazon Location', to: '/register/amazon-location' },
+  { label: 'Loqate', to: '/register/loqate' },
 ]
 </script>
 

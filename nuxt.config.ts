@@ -13,6 +13,9 @@ export default defineNuxtConfig({
     appleMapsKeyId: '',
     appleMapsPrivateKey: '',
     mapboxAccessToken: '',
+    amazonLocationApiKey: '',
+    amazonLocationRegion: '',
+    loqateApiKey: '',
     public: {
       apiBase: process.env.API_BASE_URL || 'http://localhost:3331/api',
       mapboxAccessToken: '',
