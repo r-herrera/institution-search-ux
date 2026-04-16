@@ -1,17 +1,11 @@
 <template>
   <div>
     <SchoolRegistrationForm
-      v-model:search-query="searchQuery"
       v-model:form-data="formData"
       provider="Loqate"
       :countries="loqateCountries"
-      :suggestions="suggestions"
-      :loading="loading"
-      :no-results="noResults"
-      :error-message="errorMessage"
+      :show-address-search="false"
       :address-confirmation="true"
-      @search="onSearch"
-      @select-suggestion="onSelect"
       @country-change="onCountryChange"
       @submit="onSubmit"
     />
@@ -79,18 +73,13 @@
 </template>
 
 <script setup lang="ts">
-import type { Suggestion, FormData } from '~/components/SchoolRegistrationForm.vue'
+import type { FormData } from '~/components/SchoolRegistrationForm.vue'
 import { registrationCountries as staticCountries } from '~/utils/registration-countries'
 
-const searchQuery = ref('')
 const formData = ref<FormData>({
   country: '', line1: '', line2: '', city: '', state: '', postalCode: '',
   schoolName: '', schoolWebsite: '', telephone: '',
 })
-const suggestions = ref<Suggestion[]>([])
-const loading = ref(false)
-const noResults = ref(false)
-const errorMessage = ref('')
 const loqateCountries = staticCountries
 
 // Address Validation state
@@ -112,102 +101,27 @@ const validatedFormattedAddress = computed(() => {
 
 const verificationLevel = computed(() => {
   if (!validationData.value) return 'Unverified'
-  // The Retrieve endpoint returns data — if we got a match, it's verified
-  return 'Suggested'
+  const avc = validationData.value.AVC as string | undefined
+  if (!avc) return 'Verified'
+  // AVC format: V/P/I/U followed by premise/thoroughfare/locality/postcode match levels
+  // V = Verified, P = Partially verified, I = Interaction needed, U = Unverifiable
+  if (avc.startsWith('V')) return 'Verified'
+  if (avc.startsWith('P')) return 'Partially Verified'
+  return 'Unverified'
 })
 
 const verificationLevelClass = computed(() => {
   const level = verificationLevel.value
-  if (level === 'Suggested') return 'level-verified'
+  if (level === 'Verified') return 'level-verified'
+  if (level === 'Partially Verified') return 'level-partial'
   return 'level-unverified'
 })
-
-async function onSearch(query: string) {
-  loading.value = true
-  noResults.value = false
-  errorMessage.value = ''
-
-  try {
-    const data = await $fetch<any>('/api/loqate/autocomplete', {
-      query: { text: query, country: formData.value.country || undefined },
-    })
-
-    if (data?.Items?.length && !data.Items[0].Error) {
-      suggestions.value = data.Items.map((item: any) => ({
-        label: item.Text || item.Description || '',
-        secondary: item.Description || '',
-        value: item,
-      }))
-    } else {
-      suggestions.value = []
-      noResults.value = true
-    }
-  } catch (err: any) {
-    errorMessage.value = err?.data?.message || 'Failed to search addresses'
-    suggestions.value = []
-  } finally {
-    loading.value = false
-  }
-}
-
-async function onSelect(suggestion: Suggestion) {
-  const item = suggestion.value
-
-  // Loqate uses a drill-down model: if Type is not 'Address', we need to
-  // search again with the Id to expand the container (e.g. street → addresses)
-  if (item.Type !== 'Address') {
-    loading.value = true
-    try {
-      const data = await $fetch<any>('/api/loqate/autocomplete', {
-        query: { text: item.Text, country: formData.value.country || undefined },
-      })
-      if (data?.Items?.length && !data.Items[0].Error) {
-        suggestions.value = data.Items.map((i: any) => ({
-          label: i.Text || i.Description || '',
-          secondary: i.Description || '',
-          value: i,
-        }))
-      }
-    } catch {
-      errorMessage.value = 'Failed to expand address'
-    } finally {
-      loading.value = false
-    }
-    return
-  }
-
-  // Type === 'Address' — retrieve full details
-  loading.value = true
-  try {
-    const data = await $fetch<any>('/api/loqate/retrieve', {
-      query: { id: item.Id },
-    })
-
-    if (data?.Items?.length && !data.Items[0].Error) {
-      const addr = data.Items[0]
-      formData.value.line1 = addr.Line1 || ''
-      formData.value.line2 = addr.Line2 || ''
-      formData.value.city = addr.City || ''
-      formData.value.state = addr.Province || addr.ProvinceName || ''
-      formData.value.postalCode = addr.PostalCode || ''
-      if (addr.CountryIso2) {
-        formData.value.country = addr.CountryIso2
-      }
-    }
-  } catch (err: any) {
-    errorMessage.value = 'Failed to retrieve address details'
-  } finally {
-    loading.value = false
-  }
-}
 
 async function onSubmit(data: FormData) {
   if (!data.line1) {
     finalSubmit(data)
     return
   }
-
-  errorMessage.value = ''
 
   enteredAddress.value = [
     data.line1,
@@ -276,9 +190,6 @@ function finalSubmit(data: FormData) {
 }
 
 function onCountryChange() {
-  suggestions.value = []
-  noResults.value = false
-  errorMessage.value = ''
   validationData.value = null
   showValidationDialog.value = false
 }

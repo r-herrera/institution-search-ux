@@ -25,45 +25,47 @@
     </div>
 
     <!-- Address Search -->
-    <div class="field">
-      <label for="reg-address-search">Address Search</label>
-      <div class="autocomplete-wrapper">
-        <input
-          id="reg-address-search"
-          type="text"
-          :value="searchQuery"
-          placeholder="Start typing an address..."
-          :disabled="!formData.country"
-          autocomplete="off"
-          @input="onSearchInput"
-          @focus="showSuggestions = true"
-        />
-        <div v-if="loading" class="input-spinner" />
-        <div
-          v-if="showSuggestions && suggestions.length > 0"
-          class="suggestions-dropdown"
-        >
-          <button
-            v-for="(suggestion, index) in suggestions"
-            :key="index"
-            type="button"
-            class="suggestion-item"
-            @click="onSelectSuggestion(suggestion)"
+    <template v-if="showAddressSearch">
+      <div class="field">
+        <label for="reg-address-search">Address Search</label>
+        <div class="autocomplete-wrapper">
+          <input
+            id="reg-address-search"
+            type="text"
+            :value="searchQuery"
+            placeholder="Start typing an address..."
+            :disabled="!formData.country"
+            autocomplete="off"
+            @input="onSearchInput"
+            @focus="showSuggestions = true"
+          />
+          <div v-if="loading" class="input-spinner" />
+          <div
+            v-if="showSuggestions && suggestions.length > 0"
+            class="suggestions-dropdown"
           >
-            {{ suggestion.label }}
-            <span v-if="suggestion.secondary" class="suggestion-secondary">{{ suggestion.secondary }}</span>
-          </button>
+            <button
+              v-for="(suggestion, index) in suggestions"
+              :key="index"
+              type="button"
+              class="suggestion-item"
+              @click="onSelectSuggestion(suggestion)"
+            >
+              {{ suggestion.label }}
+              <span v-if="suggestion.secondary" class="suggestion-secondary">{{ suggestion.secondary }}</span>
+            </button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <p v-if="noResults" class="field-warning">
-      No results found — you can enter the address manually below.
-    </p>
+      <p v-if="noResults" class="field-warning">
+        No results found — you can enter the address manually below.
+      </p>
 
-    <p v-if="errorMessage" class="field-error">
-      {{ errorMessage }}
-    </p>
+      <p v-if="errorMessage" class="field-error">
+        {{ errorMessage }}
+      </p>
+    </template>
 
     <!-- Address Line 1 -->
     <div class="field">
@@ -145,12 +147,15 @@ export interface FormData {
 const props = defineProps<{
   provider: string
   countries: { code: string; name: string }[]
-  suggestions: Suggestion[]
+  suggestions?: Suggestion[]
   loading?: boolean
   noResults?: boolean
   errorMessage?: string
   addressConfirmation?: boolean
+  showAddressSearch?: boolean
 }>()
+
+const showAddressSearch = computed(() => props.showAddressSearch !== false)
 
 const emit = defineEmits<{
   search: [query: string]
