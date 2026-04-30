@@ -17,6 +17,17 @@ export default defineEventHandler(async (event) => {
   lines.forEach((line, i) => {
     addressInput[`Address${i + 1}`] = line
   })
+
+  // Use structured fields for better match quality (per Loqate docs recommendation)
+  if (body.locality) {
+    addressInput.Locality = body.locality
+  }
+  if (body.administrativeArea) {
+    addressInput.AdministrativeArea = body.administrativeArea
+  }
+  if (body.postalCode) {
+    addressInput.PostalCode = body.postalCode
+  }
   if (body.country) {
     addressInput.Country = body.country
   }
@@ -33,16 +44,31 @@ export default defineEventHandler(async (event) => {
   )
 
   const match = response?.[0]?.Matches?.[0]
+  console.log("🚀 ~ match:", match)
 
   if (!match) {
-    return { verified: false, match: null }
+    return { verified: false, verificationStatus: 'unverified', matchLevel: 0, match: null }
   }
 
   const avc: string = match.AVC || ''
-  const verified = avc.startsWith('V')
+  const avcStatus = avc.charAt(0) // V, P, A, R, U
+  const postProcessedLevel = parseInt(avc.charAt(1)) || 0 // 0-5
+
+  let verificationStatus: 'verified' | 'partial' | 'ambiguous' | 'unverified'
+  if (avcStatus === 'V') {
+    verificationStatus = 'verified'
+  } else if (avcStatus === 'P') {
+    verificationStatus = 'partial'
+  } else if (avcStatus === 'A') {
+    verificationStatus = 'ambiguous'
+  } else {
+    verificationStatus = 'unverified' // R (Reverted) or U (Unable to verify)
+  }
 
   return {
-    verified,
+    verified: verificationStatus === 'verified',
+    verificationStatus,
+    matchLevel: postProcessedLevel,
     match: {
       Line1: match.Address1 || '',
       Line2: match.Address2 || '',

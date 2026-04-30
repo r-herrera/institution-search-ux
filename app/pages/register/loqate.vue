@@ -1,11 +1,18 @@
 <template>
   <div>
     <SchoolRegistrationForm
+      v-model:search-query="searchQuery"
       v-model:form-data="formData"
       provider="Loqate"
       :countries="loqateCountries"
-      :show-address-search="false"
+      :suggestions="suggestions"
+      :loading="loading"
+      :no-results="noResults"
+      :error-message="errorMessage"
+      :show-address-search="true"
       :address-confirmation="true"
+      @search="onSearch"
+      @select-suggestion="onSelect"
       @country-change="onCountryChange"
       @submit="onSubmit"
     />
@@ -19,7 +26,9 @@
       <div class="modal-card">
         <div class="modal-header">
           <h3>Confirm your address</h3>
-          <p>Loqate found a verified version of your address. Which would you like to use?</p>
+          <p v-if="verificationStatus === 'verified'">Loqate found a verified version of your address. Which would you like to use?</p>
+          <p v-else-if="verificationStatus === 'partial'">Loqate could only partially verify your address (verified to {{ matchLevelLabel }} level). Please review carefully.</p>
+          <p v-else>Loqate could not fully verify your address. Please review the suggested match.</p>
         </div>
 
         <div class="modal-body">
@@ -69,11 +78,49 @@
         </div>
       </div>
     </div>
+
+    <!-- Unverified/Ambiguous Warning Modal -->
+    <div
+      v-if="showUnverifiedDialog"
+      class="modal-overlay"
+      @click.self="dismissUnverifiedDialog"
+    >
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Address could not be verified</h3>
+          <p v-if="verificationStatus === 'ambiguous'">
+            Loqate found multiple possible matches for your address. Please check your address details are correct before continuing.
+          </p>
+          <p v-else>
+            Loqate was unable to verify this address. It may be incomplete or contain errors. Please review your input.
+          </p>
+        </div>
+
+        <div class="modal-body">
+          <div class="unverified-address-display">
+            <p class="option-label">
+              Your address
+              <span class="verification-level level-unverified">{{ verificationLevel }}</span>
+            </p>
+            <p class="option-address">{{ enteredAddress }}</p>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-outline" @click="dismissUnverifiedDialog">
+            Edit address
+          </button>
+          <button class="btn-primary btn-warning" @click="submitAnyway">
+            Submit anyway
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { FormData } from '~/components/SchoolRegistrationForm.vue'
+import type { Suggestion, FormData } from '~/components/SchoolRegistrationForm.vue'
 import { registrationCountries as staticCountries } from '~/utils/registration-countries'
 
 const formData = ref<FormData>({
@@ -82,11 +129,100 @@ const formData = ref<FormData>({
 })
 const loqateCountries = staticCountries
 
+// Autocomplete state
+const searchQuery = ref('')
+const suggestions = ref<Suggestion[]>([])
+const loading = ref(false)
+const noResults = ref(false)
+const errorMessage = ref('')
+const containerId = ref<string | null>(null)
+
+async function onSearch(query: string) {
+  // When user types new text, reset drill-down container
+  containerId.value = null
+  await doFind(query)
+}
+
+async function doFind(query: string) {
+  loading.value = true
+  noResults.value = false
+  errorMessage.value = ''
+
+  try {
+    const params: Record<string, string> = {
+      text: query,
+    }
+    if (formData.value.country) {
+      params.country = formData.value.country
+    }
+    if (containerId.value) {
+      params.container = containerId.value
+    }
+
+    const data = await $fetch<any>('/api/loqate/autocomplete', { query: params })
+
+    const items = data?.Items || []
+    if (items.length > 0) {
+      suggestions.value = items.map((item: any) => ({
+        label: item.Text,
+        secondary: item.Description,
+        value: { id: item.Id, type: item.Type, text: item.Text },
+      }))
+    } else {
+      suggestions.value = []
+      noResults.value = true
+    }
+  } catch (err: any) {
+    errorMessage.value = err?.data?.message || 'Failed to search addresses'
+    suggestions.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+async function onSelect(suggestion: Suggestion) {
+  const { id, type } = suggestion.value
+
+  if (type !== 'Address') {
+    // Drill-down: this is a container (e.g. street, building)
+    // Call Find again scoped to this container
+    containerId.value = id
+    searchQuery.value = suggestion.value.text
+    await doFind(suggestion.value.text)
+    return
+  }
+
+  // Leaf address — retrieve full details
+  loading.value = true
+  try {
+    const data = await $fetch<any>('/api/loqate/retrieve', { query: { id } })
+    const addr = data?.Items?.[0]
+    if (addr) {
+      formData.value.line1 = addr.Line1 || ''
+      formData.value.line2 = addr.Line2 || ''
+      formData.value.city = addr.City || ''
+      formData.value.state = addr.Province || addr.ProvinceName || ''
+      formData.value.postalCode = addr.PostalCode || ''
+    }
+    suggestions.value = []
+    searchQuery.value = ''
+    containerId.value = null
+  } catch (err: any) {
+    errorMessage.value = 'Failed to retrieve address details'
+  } finally {
+    loading.value = false
+  }
+}
+
 // Address Validation state
 const showValidationDialog = ref(false)
 const validationData = ref<any>(null)
 const selectedOption = ref<'original' | 'recommended'>('recommended')
 const enteredAddress = ref('')
+
+// Unverified/ambiguous warning dialog state
+const showUnverifiedDialog = ref(false)
+const pendingSubmitData = ref<FormData | null>(null)
 
 const validatedFormattedAddress = computed(() => {
   if (!validationData.value) return ''
@@ -99,14 +235,25 @@ const validatedFormattedAddress = computed(() => {
   ].filter(Boolean).join(', ')
 })
 
+const verificationStatus = ref<string>('unverified')
+const matchLevel = ref(0)
+
+const matchLevelLabel = computed(() => {
+  const labels: Record<number, string> = {
+    5: 'delivery point',
+    4: 'premise',
+    3: 'thoroughfare',
+    2: 'locality',
+    1: 'administrative area',
+    0: 'none',
+  }
+  return labels[matchLevel.value] || 'none'
+})
+
 const verificationLevel = computed(() => {
-  if (!validationData.value) return 'Unverified'
-  const avc = validationData.value.AVC as string | undefined
-  if (!avc) return 'Verified'
-  // AVC format: V/P/I/U followed by premise/thoroughfare/locality/postcode match levels
-  // V = Verified, P = Partially verified, I = Interaction needed, U = Unverifiable
-  if (avc.startsWith('V')) return 'Verified'
-  if (avc.startsWith('P')) return 'Partially Verified'
+  if (verificationStatus.value === 'verified') return 'Verified'
+  if (verificationStatus.value === 'partial') return 'Partially Verified'
+  if (verificationStatus.value === 'ambiguous') return 'Ambiguous'
   return 'Unverified'
 })
 
@@ -132,32 +279,47 @@ async function onSubmit(data: FormData) {
   try {
     const addressLines = [data.line1]
     if (data.line2) addressLines.push(data.line2)
-    addressLines.push([data.city, data.state, data.postalCode].filter(Boolean).join(', '))
 
     const result = await $fetch<any>('/api/loqate/validate-address', {
       method: 'POST',
       body: {
         address: addressLines,
         country: data.country,
+        locality: data.city || '',
+        administrativeArea: data.state || '',
+        postalCode: data.postalCode || '',
       },
     })
 
-    if (result?.verified && result.match) {
-      const verified = result.match
-      // Check if the address was changed or needs confirmation
-      const matchesOriginal = (verified.Line1 || '') === data.line1
-        && (verified.PostalCode || '') === (data.postalCode || '')
-        && (verified.City || '') === (data.city || '')
+    const status = result?.verificationStatus || 'unverified'
+    verificationStatus.value = status
+    matchLevel.value = result?.matchLevel ?? 0
 
-      if (!matchesOriginal) {
-        validationData.value = verified
-        selectedOption.value = 'recommended'
-        showValidationDialog.value = true
-      } else {
-        finalSubmit(data)
+    if ((status === 'verified' || status === 'partial') && result.match) {
+      const verified = result.match
+
+      if (status === 'verified') {
+        // Fully verified — skip dialog if nothing changed
+        const matchesOriginal = (verified.Line1 || '') === data.line1
+          && (verified.Line2 || '') === (data.line2 || '')
+          && (verified.PostalCode || '') === (data.postalCode || '')
+          && (verified.City || '') === (data.city || '')
+          && (verified.Province || '') === (data.state || '')
+
+        if (matchesOriginal) {
+          finalSubmit(data)
+          return
+        }
       }
+
+      // Show dialog for verified-with-changes and partial matches
+      validationData.value = verified
+      selectedOption.value = status === 'verified' ? 'recommended' : 'original'
+      showValidationDialog.value = true
     } else {
-      finalSubmit(data)
+      // Ambiguous, reverted, or unverified — show warning dialog
+      pendingSubmitData.value = data
+      showUnverifiedDialog.value = true
     }
   } catch {
     // If validation fails, allow submission anyway
@@ -189,9 +351,29 @@ function finalSubmit(data: FormData) {
   alert(`Loqate submission:\n${JSON.stringify(data, null, 2)}`)
 }
 
+function dismissUnverifiedDialog() {
+  showUnverifiedDialog.value = false
+  pendingSubmitData.value = null
+}
+
+function submitAnyway() {
+  showUnverifiedDialog.value = false
+  if (pendingSubmitData.value) {
+    finalSubmit(pendingSubmitData.value)
+  }
+  pendingSubmitData.value = null
+}
+
 function onCountryChange() {
   validationData.value = null
   showValidationDialog.value = false
+  showUnverifiedDialog.value = false
+  // Reset autocomplete state
+  searchQuery.value = ''
+  suggestions.value = []
+  containerId.value = null
+  noResults.value = false
+  errorMessage.value = ''
 }
 </script>
 
@@ -351,5 +533,20 @@ function onCountryChange() {
 
 .btn-primary:hover {
   background: #1d4ed8;
+}
+
+.btn-warning {
+  background: #d97706;
+}
+
+.btn-warning:hover {
+  background: #b45309;
+}
+
+.unverified-address-display {
+  padding: 14px;
+  border: 1.5px solid #fde68a;
+  border-radius: 10px;
+  background: #fffbeb;
 }
 </style>
